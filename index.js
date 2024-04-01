@@ -23,13 +23,13 @@ const con = mySql.createConnection({
     password: "",
     database: "ftp",
 });
-const isAuthenticated = (req, res, next) => {
-  if (req.session && req.session.user) {
-    return next();
-  } else {
-    return res.status(401).send({ message: 'Unauthorized' });
-  }
-};
+// const isAuthenticated = (req, res, next) => {
+//   if (req.session && req.session.user) {
+//     return next();
+//   } else {
+//     return res.status(401).send({ message: 'Unauthorized' });
+//   }
+// };
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
       const clientId = req.body.clientId;
@@ -71,8 +71,8 @@ app.post('/clientlogin', function(req, res)  {
                     const user = result[0];
                     const { clientId, clientPassword } = user; 
                     req.session.user = { clientId, clientPassword };
-                    res.send({ clientid: clientId, password: clientPassword });
-                    console.log('Session after Setting :', req.session.user.clientId ); 
+                    res.send({ clientid: req.session.user.clientId, password: req.session.user.clientPassword });
+                    console.log('Session after Setting :', req.session.user.clientId,req.session.user.clientPassword ); 
                     console.log('User logged in successfully!');
 
                 } else {
@@ -83,7 +83,21 @@ app.post('/clientlogin', function(req, res)  {
     );
 });
 
+const isAuthenticated = (req, res, next) => {
+  if (req.session.user) {
+      // User is authenticated, allow access to the next route
+      next();
+  } else {
+      // User is not authenticated, redirect to login page
+      res.status(401).send({ message: "Unauthorized access. Please log in." });
+  }
+};
 
+// Protected routes
+app.get('/dashboard', isAuthenticated, (req, res) => {
+  // Only authenticated users can access this route
+  res.send('Welcome to client dashboard');
+});
   
 app.get('/getFileData/:clientid',function(req, res)  {
   try {
@@ -116,7 +130,7 @@ app.get('/getFileData/:clientid',function(req, res)  {
 app.get('/download/:clientid/:file_name', (req, res) => {
 
   const { clientid, file_name } = req.params;
-  const filePath = path.join(__dirname, '..', '..', 'ftp_cms', 'server', 'src', 'files', clientid, file_name);
+  const filePath = path.join(__dirname, '..', '..', 'ftp_client', 'server', 'src', 'files', clientid, file_name);
   console.log('File Path:', filePath);
 
   // Check if the file exists
@@ -169,6 +183,6 @@ app.post('/client-logout', (req, res) => {
 });
 
 
-app.listen(3004, '192.168.1.3', () => {
+app.listen(3004, '192.168.1.10', () => {
     console.log("Server is listening on port 3004");
 });
