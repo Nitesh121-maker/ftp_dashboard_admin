@@ -18,10 +18,10 @@ app.use(session({
   saveUninitialized: true,
 }))
 const con = mySql.createConnection({
-    user: "root",
-    host: "localhost",
-    password: "",
-    database: "ftp",
+  user: "u930769248_ftp_server",
+  host: "srv919.hstgr.io",
+  password: "FTP@nsctrade24",
+  database: "u930769248_FTP",
 });
 // const isAuthenticated = (req, res, next) => {
 //   if (req.session && req.session.user) {
@@ -33,7 +33,7 @@ const con = mySql.createConnection({
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
       const clientId = req.body.clientId;
-      const uploadPath = path.join(__dirname, 'src', 'files', clientId);
+      const uploadPath = path.join(_dirname, 'src', 'files', clientId);
       
       if (!fs.existsSync(uploadPath)) {
         fs.mkdirSync(uploadPath, { recursive: true });
@@ -58,7 +58,7 @@ const transporter = nodemailer.createTransport({
 
 app.post('/clientlogin', function(req, res)  {
     const { clientid, password } = req.body;
-
+    console.log(clientid, password);
     con.query(
         "SELECT * FROM clients WHERE clientId = ? AND 	clientPassword = ?",
         [clientid, password],
@@ -83,21 +83,21 @@ app.post('/clientlogin', function(req, res)  {
     );
 });
 
-const isAuthenticated = (req, res, next) => {
-  if (req.session.user) {
-      // User is authenticated, allow access to the next route
-      next();
-  } else {
-      // User is not authenticated, redirect to login page
-      res.status(401).send({ message: "Unauthorized access. Please log in." });
-  }
-};
+// const isAuthenticated = (req, res, next) => {
+//   if (req.session.user) {
+//       // User is authenticated, allow access to the next route
+//       next();
+//   } else {
+//       // User is not authenticated, redirect to login page
+//       res.status(401).send({ message: "Unauthorized access. Please log in." });
+//   }
+// };
 
-// Protected routes
-app.get('/dashboard', isAuthenticated, (req, res) => {
-  // Only authenticated users can access this route
-  res.send('Welcome to client dashboard');
-});
+// // Protected routes
+// app.get('/dashboard', isAuthenticated, (req, res) => {
+//   // Only authenticated users can access this route
+//   res.send('Welcome to client dashboard');
+// });
   
 app.get('/getFileData/:clientid',function(req, res)  {
   try {
@@ -142,6 +142,19 @@ app.get('/download/:clientid/:file_name', (req, res) => {
     // Create a read stream from the file and pipe it to the response
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
+    fileStream.on('end', () => {
+      // Update database record to set download status as "downloaded"
+      const updateQuery = `UPDATE \`${clientid}\` SET download_status = ? WHERE file_name = ?`;
+      con.query(updateQuery, ['downloaded', file_name], (err, result) => {
+        if (err) {
+          console.error('Error updating download status:', err);
+          // Handle error response if necessary
+        } else {
+          console.log(`Download status updated for file "${file_name}" for client "${clientid}"`);
+          // Send success response if necessary
+        }
+      });
+    });
   } else {
     // If the file doesn't exist, send a 404 response
     res.status(404).send('File not found');
@@ -170,6 +183,7 @@ app.post('/search/:clientid/:fileMonth', (req, res) => {
 
 
 
+// Session Logout
 app.post('/client-logout', (req, res) => {
   // Clear the session to log the user out
   req.session.destroy((err) => {
